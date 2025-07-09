@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!peer) return;
 
       if (!peer.messages) peer.messages = [];
-      peer.messages.push({ from: peer.name, text: data.content });
+      peer.messages.push({ from: peer.name, text: data.content, file: data.file });
 
       if (currentChat === data.from) renderChat(data.from);
     }
@@ -57,19 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updatePeerList(list) {
     peers = {};
+    peerList.innerHTML = '';
+
+    // Own contact card
+    const me = document.createElement('li');
+    me.innerHTML = `<strong contenteditable="true" onblur="updateName(this)">${localName}</strong><br/><small>${localDevice} (You)</small>`;
+    me.className = 'peer-card';
+    peerList.appendChild(me);
+
     for (const peer of list) {
       if (peer.id === localId) continue;
       peers[peer.id] = {
         ...peer,
         messages: peers[peer.id]?.messages || [],
       };
-    }
-    renderPeerList();
-  }
 
-  function renderPeerList() {
-    peerList.innerHTML = '';
-    for (const [id, peer] of Object.entries(peers)) {
       const li = document.createElement('li');
       li.innerHTML = `
         <div>
@@ -80,12 +82,17 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       li.className = 'peer-card';
       li.onclick = () => {
-        currentChat = id;
-        openChat(id);
+        currentChat = peer.id;
+        openChat(peer.id);
       };
       peerList.appendChild(li);
     }
   }
+
+  window.updateName = (el) => {
+    localName = el.innerText.trim();
+    broadcastPresence();
+  };
 
   function openChat(peerId) {
     home.hidden = true;
@@ -102,10 +109,48 @@ document.addEventListener('DOMContentLoaded', () => {
       const div = document.createElement('div');
       const isSelf = msg.from === "You";
       div.className = isSelf ? 'from-you' : 'from-them';
-      if (msg.text.length > 60 || msg.text.includes('\n')) {
-        div.classList.add('long');
+
+      if (msg.file) {
+        const preview = document.createElement('div');
+        preview.className = 'preview';
+
+        if (msg.file.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = msg.file.data;
+          preview.appendChild(img);
+        } else if (msg.file.type.startsWith('video/')) {
+          const vid = document.createElement('video');
+          vid.src = msg.file.data;
+          vid.controls = true;
+          preview.appendChild(vid);
+        } else if (msg.file.type.startsWith('text/')) {
+          const pre = document.createElement('pre');
+          pre.innerText = atob(msg.file.data.split(',')[1]).slice(0, 200);
+          preview.appendChild(pre);
+        }
+
+        const fileName = document.createElement('span');
+        fileName.className = 'file-name';
+        fileName.innerText = msg.file.name;
+        fileName.onclick = () => {
+          if (confirm(`Download ${msg.file.name}?`)) {
+            const a = document.createElement('a');
+            a.href = msg.file.data;
+            a.download = msg.file.name;
+            a.click();
+          }
+        };
+
+        div.appendChild(preview);
+        div.appendChild(fileName);
       }
-      div.innerText = msg.text;
+
+      if (msg.text) {
+        const text = document.createElement('div');
+        text.innerText = msg.text;
+        div.appendChild(text);
+      }
+
       chatBox.appendChild(div);
     }
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -130,9 +175,26 @@ document.addEventListener('DOMContentLoaded', () => {
     messageInput.value = '';
   };
 
-  window.sendFile = function () {
-    alert("📎 File transfer coming soon!");
-  };
+  fileInput.addEventListener('change', async () => {
+    if (!fileInput.files[0] || !currentChat) return;
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const peer = peers[currentChat];
+      peer.messages.push({ from: "You", file: { name: file.name, data: dataUrl, type: file.type } });
+      renderChat(currentChat);
+
+      socket.send(JSON.stringify({
+        type: 'message',
+        from: localId,
+        to: currentChat,
+        name: localName,
+        file: { name: file.name, data: dataUrl, type: file.type }
+      }));
+    };
+    reader.readAsDataURL(file);
+  });
 
   backButton.onclick = () => {
     chatView.hidden = true;

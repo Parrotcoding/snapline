@@ -8,7 +8,6 @@ const messageInput = document.getElementById('message');
 let peerConnection;
 let dataChannel;
 
-// 🌐 When WebSocket is ready, hide loading and start WebRTC
 socket.addEventListener('open', () => {
   console.log("✅ WebSocket connected");
   loading.hidden = true;
@@ -17,7 +16,6 @@ socket.addEventListener('open', () => {
   startWebRTC();
 });
 
-// ❌ If server is sleeping or error occurs
 socket.addEventListener('error', (e) => {
   console.error("❌ WebSocket error", e);
   log("Error connecting to signaling server");
@@ -28,7 +26,6 @@ socket.addEventListener('close', () => {
   log("WebSocket connection closed");
 });
 
-// 📩 When receiving signaling data
 socket.addEventListener('message', async (event) => {
   const data = JSON.parse(event.data);
 
@@ -48,7 +45,6 @@ socket.addEventListener('message', async (event) => {
   }
 });
 
-// 🎬 Setup peer and data channel
 function startWebRTC() {
   peerConnection = new RTCPeerConnection();
 
@@ -58,7 +54,6 @@ function startWebRTC() {
     }
   };
 
-  // If this is the first tab: create channel
   dataChannel = peerConnection.createDataChannel("chat");
   setupDataChannel(dataChannel);
 
@@ -72,7 +67,6 @@ function startWebRTC() {
   });
 }
 
-// 📨 Send message
 function sendMessage() {
   const msg = messageInput.value.trim();
   if (msg && dataChannel?.readyState === 'open') {
@@ -82,7 +76,6 @@ function sendMessage() {
   }
 }
 
-// 📁 Send file
 function sendFile() {
   const file = document.getElementById('fileInput').files[0];
   if (!file || dataChannel?.readyState !== 'open') return;
@@ -100,7 +93,6 @@ function sendFile() {
   reader.readAsDataURL(file);
 }
 
-// 🧠 Receive message or file
 function setupDataChannel(channel) {
   dataChannel = channel;
 

@@ -1,237 +1,205 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const loading = document.getElementById('loading');
-  const home = document.getElementById('home');
-  const chatView = document.getElementById('chatView');
-  const peerList = document.getElementById('peerList');
-  const chatBox = document.getElementById('chatBox');
-  const chatHeader = document.getElementById('chatHeader');
-  const messageInput = document.getElementById('messageInput');
-  const fileInput = document.getElementById('fileInput');
-  const backButton = document.getElementById('backButton');
+const socket = new WebSocket('wss://snapline-server.onrender.com');
+const loading = document.getElementById('loading');
+const home = document.getElementById('home');
+const chatView = document.getElementById('chatView');
+const peerList = document.getElementById('peerList');
+const chatBox = document.getElementById('chatBox');
+const messageInput = document.getElementById('messageInput');
+const fileInput = document.getElementById('fileInput');
+const sendButton = document.getElementById('sendButton');
+const typingIndicator = document.getElementById('typingIndicator');
+const chatHeader = document.getElementById('chatHeader');
+const notifications = document.getElementById('notifications');
+const popup = document.getElementById('downloadPopup');
+const popupText = document.getElementById('popupText');
+const popupConfirm = document.getElementById('popupConfirm');
+const popupCancel = document.getElementById('popupCancel');
 
-  let localId = crypto.randomUUID();
-  let localName = generateRandomName();
-  let localDevice = `${detectPlatform()} ${detectBrowser()}`;
-  let peers = {};
-  let currentChat = null;
+let selfId = '';
+let peers = {};
+let chats = {};
+let currentChat = null;
+let typingTimeout = null;
+let fileBlob = null;
+let fileName = '';
 
-  const socket = new WebSocket('wss://snapline-server.onrender.com');
+function randomName() {
+  const adj = ['Swift', 'Clever', 'Happy', 'Quiet', 'Brave'];
+  const noun = ['Falcon', 'Otter', 'Fox', 'Hawk', 'Panda'];
+  return adj[Math.floor(Math.random() * adj.length)] + ' ' + noun[Math.floor(Math.random() * noun.length)];
+}
 
-  socket.addEventListener('open', () => {
-    console.log("✅ WebSocket connected");
-    broadcastPresence();
-    loading.style.display = 'none';
-    home.hidden = false;
-  });
+let selfName = randomName();
+let selfDevice = navigator.userAgent.includes('Mac') ? 'Mac Safari' : 'Other';
 
-  socket.addEventListener('message', async (event) => {
-    let data;
-    try {
-      const text = event.data instanceof Blob ? await event.data.text() : event.data;
-      data = JSON.parse(text);
-    } catch (err) {
-      console.error("Invalid message:", err);
-      return;
-    }
+function showUI() {
+  loading.hidden = true;
+  home.hidden = false;
+}
 
-    if (data.type === 'peerlist') updatePeerList(data.peers);
-    if (data.type === 'message' && data.to === localId) {
-      const peer = peers[data.from];
-      if (!peer) return;
-
-      if (!peer.messages) peer.messages = [];
-      peer.messages.push({ from: peer.name, text: data.content, file: data.file });
-
-      if (currentChat === data.from) renderChat(data.from);
-    }
-  });
-
-  function broadcastPresence() {
-    socket.send(JSON.stringify({
-      type: 'join',
-      id: localId,
-      name: localName,
-      device: localDevice
-    }));
-  }
-
-  function updatePeerList(list) {
-    peers = {};
-    peerList.innerHTML = '';
-
-    // Own contact card
-    const me = document.createElement('li');
-    me.innerHTML = `<strong contenteditable="true" onblur="updateName(this)">${localName}</strong><br/><small>${localDevice} (You)</small>`;
-    me.className = 'peer-card';
-    peerList.appendChild(me);
-
-    for (const peer of list) {
-      if (peer.id === localId) continue;
-      peers[peer.id] = {
-        ...peer,
-        messages: peers[peer.id]?.messages || [],
-      };
-
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <div>
-          <strong>${peer.name}</strong><br />
-          <small>${peer.device}</small>
-        </div>
-        <span>${getDeviceIcon(peer.device)}</span>
-      `;
-      li.className = 'peer-card';
-      li.onclick = () => {
-        currentChat = peer.id;
-        openChat(peer.id);
-      };
-      peerList.appendChild(li);
-    }
-  }
-
-  window.updateName = (el) => {
-    localName = el.innerText.trim();
-    broadcastPresence();
+function renderPeers() {
+  peerList.innerHTML = '';
+  const selfLi = document.createElement('li');
+  selfLi.className = 'peer-card';
+  selfLi.innerHTML = `<div><strong contenteditable id="editName">${selfName}</strong><br /><small>${selfDevice} (you)</small></div>`;
+  selfLi.ondblclick = () => document.getElementById('editName').focus();
+  document.getElementById('editName').oninput = e => {
+    selfName = e.target.innerText.trim();
+    sendPresence();
   };
+  peerList.appendChild(selfLi);
 
-  function openChat(peerId) {
-    home.hidden = true;
-    chatView.hidden = false;
-    const peer = peers[peerId];
-    chatHeader.innerText = `${peer.name} • ${peer.device}`;
-    renderChat(peerId);
+  for (const [id, peer] of Object.entries(peers)) {
+    const li = document.createElement('li');
+    li.className = 'peer-card';
+    li.innerHTML = `<div><strong>${peer.name}</strong><br /><small>${peer.device}</small></div>`;
+    li.onclick = () => openChat(id);
+    peerList.appendChild(li);
   }
+}
 
-  function renderChat(peerId) {
-    const peer = peers[peerId];
-    chatBox.innerHTML = '';
-    for (const msg of peer.messages) {
-      const div = document.createElement('div');
-      const isSelf = msg.from === "You";
-      div.className = isSelf ? 'from-you' : 'from-them';
+function openChat(id) {
+  currentChat = id;
+  home.hidden = true;
+  chatView.hidden = false;
+  chatHeader.textContent = peers[id]?.name || 'Group Chat';
+  renderChat(id);
+}
 
-      if (msg.file) {
-        const preview = document.createElement('div');
-        preview.className = 'preview';
+function renderChat(id) {
+  chatBox.innerHTML = '';
+  const chat = chats[id] || [];
+  for (const msg of chat) {
+    const div = document.createElement('div');
+    div.className = msg.from === selfId ? 'from-you' : 'from-them';
 
-        if (msg.file.type.startsWith('image/')) {
-          const img = document.createElement('img');
-          img.src = msg.file.data;
-          preview.appendChild(img);
-        } else if (msg.file.type.startsWith('video/')) {
-          const vid = document.createElement('video');
-          vid.src = msg.file.data;
-          vid.controls = true;
-          preview.appendChild(vid);
-        } else if (msg.file.type.startsWith('text/')) {
+    if (msg.file) {
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+
+      if (msg.file.type.startsWith('image')) {
+        const img = document.createElement('img');
+        img.src = msg.file.url;
+        preview.appendChild(img);
+      } else if (msg.file.type.startsWith('video')) {
+        const vid = document.createElement('video');
+        vid.src = msg.file.url;
+        vid.controls = true;
+        preview.appendChild(vid);
+      } else if (msg.file.type.startsWith('text')) {
+        fetch(msg.file.url).then(res => res.text()).then(txt => {
           const pre = document.createElement('pre');
-          pre.innerText = atob(msg.file.data.split(',')[1]).slice(0, 200);
+          pre.textContent = txt.slice(0, 200);
           preview.appendChild(pre);
-        }
+        });
+      }
 
-        const fileName = document.createElement('span');
-        fileName.className = 'file-name';
-        fileName.innerText = msg.file.name;
-        fileName.onclick = () => {
-          if (confirm(`Download ${msg.file.name}?`)) {
-            const a = document.createElement('a');
-            a.href = msg.file.data;
-            a.download = msg.file.name;
-            a.click();
-          }
+      const name = document.createElement('span');
+      name.className = 'file-name';
+      name.textContent = msg.file.name;
+      name.onclick = () => {
+        popup.hidden = false;
+        popupText.textContent = `Download ${msg.file.name}?`;
+        popupConfirm.onclick = () => {
+          const a = document.createElement('a');
+          a.href = msg.file.url;
+          a.download = msg.file.name;
+          a.click();
+          popup.hidden = true;
         };
+        popupCancel.onclick = () => popup.hidden = true;
+      };
 
-        div.appendChild(preview);
-        div.appendChild(fileName);
-      }
-
-      if (msg.text) {
-        const text = document.createElement('div');
-        text.innerText = msg.text;
-        div.appendChild(text);
-      }
-
-      chatBox.appendChild(div);
+      div.appendChild(preview);
+      div.appendChild(name);
+    } else {
+      div.textContent = msg.text;
     }
-    chatBox.scrollTop = chatBox.scrollHeight;
+
+    chatBox.appendChild(div);
+  }
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function addMessage(id, msg) {
+  if (!chats[id]) chats[id] = [];
+  chats[id].push(msg);
+
+  if (currentChat === id) {
+    renderChat(id);
+  } else {
+    showNotification(peers[id]?.name || 'Unknown', msg.file?.name || msg.text);
+  }
+}
+
+function showNotification(from, content) {
+  const note = document.createElement('div');
+  note.className = 'notice';
+  note.innerHTML = `<div class="sender">${from}</div><div class="preview">${content.length > 40 ? content.slice(0, 40) + '…' : content}</div>`;
+  notifications.appendChild(note);
+  setTimeout(() => note.remove(), 5000);
+}
+
+function sendPresence() {
+  socket.send(JSON.stringify({ type: 'presence', name: selfName, device: selfDevice }));
+}
+
+sendButton.onclick = () => {
+  const text = messageInput.value.trim();
+  if (text === '' && !fileBlob) return;
+
+  const msg = { type: 'message', to: currentChat, from: selfId, text };
+
+  if (fileBlob) {
+    const url = URL.createObjectURL(fileBlob);
+    msg.file = { name: fileName, type: fileBlob.type, url };
+    fileBlob = null;
+    fileName = '';
   }
 
-  window.sendMessage = function () {
-    const msg = messageInput.value.trim();
-    if (!msg || !currentChat) return;
+  addMessage(currentChat, { ...msg });
+  socket.send(JSON.stringify(msg));
+  messageInput.value = '';
+};
 
-    const peer = peers[currentChat];
-    peer.messages.push({ from: "You", text: msg });
-    renderChat(currentChat);
+fileInput.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileBlob = file;
+  fileName = file.name;
+  messageInput.value = fileName;
+};
 
-    socket.send(JSON.stringify({
-      type: 'message',
-      from: localId,
-      to: currentChat,
-      name: localName,
-      content: msg
-    }));
+messageInput.oninput = () => {
+  socket.send(JSON.stringify({ type: 'typing', to: currentChat }));
+};
 
-    messageInput.value = '';
-  };
+socket.onopen = () => {
+  showUI();
+  sendPresence();
+};
 
-  fileInput.addEventListener('change', async () => {
-    if (!fileInput.files[0] || !currentChat) return;
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      const peer = peers[currentChat];
-      peer.messages.push({ from: "You", file: { name: file.name, data: dataUrl, type: file.type } });
-      renderChat(currentChat);
-
-      socket.send(JSON.stringify({
-        type: 'message',
-        from: localId,
-        to: currentChat,
-        name: localName,
-        file: { name: file.name, data: dataUrl, type: file.type }
-      }));
-    };
-    reader.readAsDataURL(file);
-  });
-
-  backButton.onclick = () => {
-    chatView.hidden = true;
-    home.hidden = false;
-    currentChat = null;
-  };
-
-  function detectPlatform() {
-    const ua = navigator.userAgent;
-    if (/Android/i.test(ua)) return "Android";
-    if (/iPhone|iPad/i.test(ua)) return "iOS";
-    if (/Win/i.test(ua)) return "Windows";
-    if (/Mac/i.test(ua)) return "Mac";
-    if (/Linux/i.test(ua)) return "Linux";
-    return "Device";
+socket.onmessage = e => {
+  const data = JSON.parse(e.data);
+  if (data.type === 'id') {
+    selfId = data.id;
+  } else if (data.type === 'presence') {
+    peers[data.id] = { name: data.name, device: data.device };
+    renderPeers();
+  } else if (data.type === 'message') {
+    addMessage(data.from, data);
+  } else if (data.type === 'typing' && data.from === currentChat) {
+    typingIndicator.hidden = false;
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => typingIndicator.hidden = true, 2000);
   }
+};
 
-  function detectBrowser() {
-    const ua = navigator.userAgent;
-    if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) return "Safari";
-    if (/Firefox/i.test(ua)) return "Firefox";
-    if (/Edg/i.test(ua)) return "Edge";
-    if (/Chrome/i.test(ua)) return "Chrome";
-    return "Browser";
-  }
+document.getElementById('backButton').onclick = () => {
+  chatView.hidden = true;
+  home.hidden = false;
+};
 
-  function getDeviceIcon(device) {
-    if (device.includes("Safari")) return "🧭";
-    if (device.includes("Firefox")) return "🦊";
-    if (device.includes("Edge")) return "🧊";
-    if (device.includes("Android") || device.includes("iOS")) return "📱";
-    return "💻";
-  }
-
-  function generateRandomName() {
-    const adjectives = ["Fuzzy", "Bold", "Silent", "Brave", "Clever", "Happy", "Tiny", "Witty", "Curious", "Mighty"];
-    const nouns = ["Tiger", "Skater", "Falcon", "Penguin", "Robot", "Artist", "Wizard", "Explorer", "Koala", "Pilot"];
-    return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
-  }
-});
+popup.onclick = e => {
+  if (e.target === popup) popup.hidden = true;
+};

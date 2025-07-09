@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageInput = document.getElementById('message');
 
   if (!loading || !main || !chat || !messageInput) {
-    console.error("❌ Required DOM elements not found");
+    console.error("❌ Required UI element missing");
     return;
   }
 
@@ -21,12 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("✅ WebSocket connected");
     log("Connected to signaling server");
 
+    // 👇 Show UI, hide loading screen
     loading.hidden = true;
     main.hidden = false;
 
     setupPeer();
 
-    // Wait to see if offer arrives — otherwise initiate
+    // Wait briefly — if no offer, create one
     setTimeout(() => {
       if (!hasReceivedOffer) {
         createOffer();
@@ -49,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       text = event.data instanceof Blob ? await event.data.text() : event.data;
     } catch (e) {
-      console.error("❌ Failed to parse incoming WebSocket message");
+      console.error("❌ Failed to decode WebSocket message");
       return;
     }
 
@@ -57,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       data = JSON.parse(text);
     } catch (e) {
-      console.error("❌ Invalid JSON:", text);
+      console.error("❌ Invalid JSON in message:", text);
       return;
     }
 
@@ -139,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         msg = JSON.parse(e.data);
       } catch {
-        log("Peer: " + e.data);
+        log("Peer (raw): " + e.data);
         return;
       }
 
@@ -163,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
-  // Make these available to HTML buttons
+  // 👇 Make these globally accessible from HTML buttons
   window.sendMessage = sendMessage;
   window.sendFile = sendFile;
 });

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // UI references
   const loading = document.getElementById('loading');
   const home = document.getElementById('home');
   const chatView = document.getElementById('chatView');
@@ -19,35 +18,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const socket = new WebSocket('wss://snapline-server.onrender.com');
 
-  // Show self info + allow renaming
-  selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
-  selfInfo.style.cursor = "pointer";
+  // Show self info
+  function renderSelfInfo() {
+    selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
+    selfInfo.style.cursor = "pointer";
+    selfInfo.ondblclick = () => {
+      const input = document.createElement("input");
+      input.value = localName;
+      input.style.borderRadius = "12px";
+      input.onblur = finishRename;
+      input.onkeydown = (e) => {
+        if (e.key === "Enter") finishRename();
+      };
+      selfInfo.replaceChildren(input);
+      input.focus();
 
-  selfInfo.ondblclick = () => {
-    const input = document.createElement("input");
-    input.value = localName;
-    input.style.borderRadius = "12px";
-    input.onblur = finishRename;
-    input.onkeydown = (e) => {
-      if (e.key === "Enter") finishRename();
+      function finishRename() {
+        localName = input.value.trim() || localName;
+        renderSelfInfo();
+        broadcastPresence();
+      }
     };
-    selfInfo.replaceChildren(input);
-    input.focus();
+  }
 
-    function finishRename() {
-      localName = input.value.trim() || localName;
-      selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
-      broadcastPresence();
-    }
-  };
+  renderSelfInfo();
 
   socket.addEventListener('open', () => {
     console.log("✅ WebSocket connected");
     broadcastPresence();
 
     // Immediately show UI
-    loading.hidden = true;
-    home.hidden = false;
+    if (loading) loading.style.display = 'none';
+    if (home) {
+      home.hidden = false;
+      home.style.display = 'block';
+    }
   });
 
   socket.addEventListener('message', async (event) => {
@@ -88,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updatePeerList(list) {
     peers = {};
-
     for (const peer of list) {
       if (peer.id === localId) continue;
       peers[peer.id] = {
@@ -96,14 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
         messages: peers[peer.id]?.messages || [],
       };
     }
-
     renderPeerList();
   }
 
   function renderPeerList() {
     peerList.innerHTML = '';
 
-    // Show self at top
+    // Show self first
     const selfLi = document.createElement('li');
     selfLi.innerHTML = `
       <div>
@@ -135,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function openChat(peerId) {
     home.hidden = true;
     chatView.hidden = false;
-
     const peer = peers[peerId];
     chatHeader.innerText = `${peer.name} • ${peer.device}`;
     renderChat(peerId);
@@ -172,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.sendFile = function () {
-    alert("File sending will be added in the next update.");
+    alert("File sending coming soon.");
   };
 
   backButton.onclick = () => {

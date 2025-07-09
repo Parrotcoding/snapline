@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+  console.log("📦 DOM ready");
+
   const socket = new WebSocket('wss://snapline-server.onrender.com');
 
   const loading = document.getElementById('loading');
@@ -7,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageInput = document.getElementById('message');
 
   if (!loading || !main || !chat || !messageInput) {
-    console.error("❌ One or more UI elements not found.");
+    console.error("❌ Required DOM elements not found");
     return;
   }
 
@@ -17,13 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.addEventListener('open', () => {
     console.log("✅ WebSocket connected");
+    log("Connected to signaling server");
+
     loading.hidden = true;
     main.hidden = false;
-    log("Connected to signaling server");
 
     setupPeer();
 
-    // Wait to see if an offer arrives, if not, create one
+    // Wait to see if offer arrives — otherwise initiate
     setTimeout(() => {
       if (!hasReceivedOffer) {
         createOffer();
@@ -33,23 +36,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.addEventListener('error', (e) => {
     console.error("❌ WebSocket error", e);
-    log("Error connecting to signaling server");
+    log("WebSocket error: " + e.message);
   });
 
   socket.addEventListener('close', () => {
-    console.warn("🔌 WebSocket connection closed");
+    console.warn("🔌 WebSocket closed");
     log("WebSocket connection closed");
   });
 
   socket.addEventListener('message', async (event) => {
-    let dataText;
-    if (event.data instanceof Blob) {
-      dataText = await event.data.text();
-    } else {
-      dataText = event.data;
+    let text;
+    try {
+      text = event.data instanceof Blob ? await event.data.text() : event.data;
+    } catch (e) {
+      console.error("❌ Failed to parse incoming WebSocket message");
+      return;
     }
 
-    const data = JSON.parse(dataText);
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("❌ Invalid JSON:", text);
+      return;
+    }
 
     if (data.type === 'offer') {
       hasReceivedOffer = true;
@@ -62,8 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (data.type === 'candidate') {
       try {
         await peerConnection.addIceCandidate(data.candidate);
-      } catch (e) {
-        console.error("⚠️ Failed to add ICE candidate", e);
+      } catch (err) {
+        console.error("⚠️ ICE candidate error:", err);
       }
     }
   });
@@ -71,13 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupPeer() {
     peerConnection = new RTCPeerConnection();
 
-    peerConnection.onicecandidate = event => {
+    peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
       }
     };
 
-    peerConnection.ondatachannel = event => {
+    peerConnection.ondatachannel = (event) => {
       setupDataChannel(event.channel);
     };
   }
@@ -120,24 +130,30 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupDataChannel(channel) {
     dataChannel = channel;
 
-    dataChannel.onopen = () => log("✅ DataChannel open");
+    dataChannel.onopen = () => {
+      log("✅ DataChannel open");
+    };
+
     dataChannel.onmessage = (e) => {
+      let msg;
       try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'text') {
-          log("Peer: " + msg.content);
-        } else if (msg.type === 'file') {
-          log(`📥 Received file: ${msg.filename}`);
-          const link = document.createElement('a');
-          link.href = msg.data;
-          link.download = msg.filename;
-          link.textContent = "⬇ Download " + msg.filename;
-          link.style.display = 'block';
-          chat.value += "\n";
-          chat.insertAdjacentElement('beforeend', link);
-        }
+        msg = JSON.parse(e.data);
       } catch {
-        log("Peer (raw): " + e.data);
+        log("Peer: " + e.data);
+        return;
+      }
+
+      if (msg.type === 'text') {
+        log("Peer: " + msg.content);
+      } else if (msg.type === 'file') {
+        log(`📥 Received file: ${msg.filename}`);
+        const link = document.createElement('a');
+        link.href = msg.data;
+        link.download = msg.filename;
+        link.textContent = "⬇ Download " + msg.filename;
+        link.style.display = 'block';
+        chat.value += "\n";
+        chat.insertAdjacentElement('beforeend', link);
       }
     };
   }
@@ -147,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
-  // Make sendMessage and sendFile global for button access
+  // Make these available to HTML buttons
   window.sendMessage = sendMessage;
   window.sendFile = sendFile;
 });

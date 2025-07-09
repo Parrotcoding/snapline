@@ -14,6 +14,7 @@
 
   <section id="home" hidden>
     <ul id="peerList" class="card-list"></ul>
+    <button id="startGroup" class="groupButton">New Group Chat</button>
   </section>
 
   <section id="chatView" hidden>
@@ -23,14 +24,25 @@
     </header>
 
     <div id="chatBox" class="chatBox"></div>
+    <div id="typingIndicator" class="typingIndicator" hidden></div>
 
     <div class="messageControls">
       <label for="fileInput" class="fileButton">＋</label>
       <input type="file" id="fileInput" hidden />
       <input type="text" id="messageInput" placeholder="Type a message..." />
-      <button onclick="sendMessage()" class="sendButton">⬆︎</button>
+      <button id="sendButton" class="sendButton">⬆︎</button>
     </div>
   </section>
+
+  <div id="downloadPopup" class="popup" hidden>
+    <div class="popup-content">
+      <p id="popupText"></p>
+      <button id="popupConfirm">Download</button>
+      <button id="popupCancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="notifications" class="notifications"></div>
 
   <script src="app.js"></script>
 </body>

@@ -2,35 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Snapline</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Loading Screen (Initially Visible) -->
+  <!-- Loading Screen -->
   <div id="loading">
     <div class="spinner"></div>
     <p>Waking up the server...</p>
   </div>
 
-  <!-- Main UI (Initially Hidden) -->
-  <main hidden>
+  <!-- Peer List Screen -->
+  <section id="home" hidden>
     <h1>📡 Snapline</h1>
+    <div id="selfInfo"></div>
+    <h2>Available Peers</h2>
+    <ul id="peerList"></ul>
+  </section>
 
-    <div class="chat-box">
-      <textarea id="chat" readonly placeholder="Chat appears here..."></textarea>
-    </div>
-
-    <div class="message-row">
-      <input type="text" id="message" placeholder="Type a message..." />
-      <button onclick="sendMessage()">Send</button>
-    </div>
-
-    <div class="file-row">
+  <!-- Chat Screen -->
+  <section id="chatView" hidden>
+    <header>
+      <button id="backButton">← Back</button>
+      <div id="chatHeader"></div>
+    </header>
+    <div class="chatBox" id="chatBox"></div>
+    <div class="messageControls">
+      <input type="text" id="messageInput" placeholder="Type a message..." />
       <input type="file" id="fileInput" />
-      <button onclick="sendFile()">Send File</button>
+      <button onclick="sendMessage()">Send</button>
+      <button onclick="sendFile()">📎</button>
     </div>
-  </main>
+  </section>
 
   <script src="app.js"></script>
 </body>

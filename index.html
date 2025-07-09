@@ -2,37 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Snapline</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Loading Screen -->
   <div id="loading">
     <div class="spinner"></div>
     <p>Waking up the server...</p>
   </div>
 
-  <!-- Peer List Screen -->
   <section id="home" hidden>
-    <h1>📡 Snapline</h1>
-    <div id="selfInfo"></div>
-    <h2>Available Peers</h2>
-    <ul id="peerList"></ul>
+    <ul id="peerList" class="card-list"></ul>
   </section>
 
-  <!-- Chat Screen -->
   <section id="chatView" hidden>
     <header>
-      <button id="backButton">← Back</button>
+      <button id="backButton">←</button>
       <div id="chatHeader"></div>
     </header>
-    <div class="chatBox" id="chatBox"></div>
+
+    <div id="chatBox" class="chatBox"></div>
+
     <div class="messageControls">
+      <label for="fileInput" class="fileButton">＋</label>
+      <input type="file" id="fileInput" onchange="sendFile()" hidden />
       <input type="text" id="messageInput" placeholder="Type a message..." />
-      <input type="file" id="fileInput" />
-      <button onclick="sendMessage()">Send</button>
-      <button onclick="sendFile()">📎</button>
+      <button onclick="sendMessage()" class="sendButton">⬆︎</button>
     </div>
   </section>
 

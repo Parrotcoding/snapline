@@ -7,13 +7,17 @@ const messageInput = document.getElementById('message');
 
 let peerConnection;
 let dataChannel;
+let isOfferer = false;
 
+// Wait for server to wake up
 socket.addEventListener('open', () => {
   console.log("✅ WebSocket connected");
   loading.hidden = true;
   main.hidden = false;
   log("Connected to signaling server");
-  startWebRTC();
+
+  // Tell server we've joined so it assigns role
+  socket.send(JSON.stringify({ type: 'join' }));
 });
 
 socket.addEventListener('error', (e) => {
@@ -27,7 +31,21 @@ socket.addEventListener('close', () => {
 });
 
 socket.addEventListener('message', async (event) => {
-  const data = JSON.parse(event.data);
+  let dataText;
+  if (event.data instanceof Blob) {
+    dataText = await event.data.text();
+  } else {
+    dataText = event.data;
+  }
+
+  const data = JSON.parse(dataText);
+
+  if (data.type === 'role') {
+    isOfferer = data.isOfferer;
+    log("🎭 Role: " + (isOfferer ? "Offerer" : "Answerer"));
+    startWebRTC();
+    return;
+  }
 
   if (data.type === 'offer') {
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
@@ -54,17 +72,19 @@ function startWebRTC() {
     }
   };
 
-  dataChannel = peerConnection.createDataChannel("chat");
-  setupDataChannel(dataChannel);
-
-  peerConnection.ondatachannel = (event) => {
+  peerConnection.ondatachannel = event => {
     setupDataChannel(event.channel);
   };
 
-  peerConnection.createOffer().then(offer => {
-    peerConnection.setLocalDescription(offer);
-    socket.send(JSON.stringify(offer));
-  });
+  if (isOfferer) {
+    dataChannel = peerConnection.createDataChannel("chat");
+    setupDataChannel(dataChannel);
+
+    peerConnection.createOffer().then(offer => {
+      peerConnection.setLocalDescription(offer);
+      socket.send(JSON.stringify(offer));
+    });
+  }
 }
 
 function sendMessage() {
@@ -88,7 +108,7 @@ function sendFile() {
       data: reader.result
     };
     dataChannel.send(JSON.stringify(payload));
-    log(`You sent file: ${file.name}`);
+    log(`📤 Sent file: ${file.name}`);
   };
   reader.readAsDataURL(file);
 }

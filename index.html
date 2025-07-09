@@ -1,19 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Snapline</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
 <body>
   <div id="loading">
     <div class="spinner"></div>
-    <link rel="stylesheet" href="style.css">
     <p>Waking up the server...</p>
   </div>
 
   <main hidden>
     <h1>📡 Snapline</h1>
-    <textarea id="chat" readonly></textarea>
-    <input type="text" id="message" placeholder="Type a message..." />
-    <button onclick="sendMessage()">Send</button>
-    <br><br>
-    <input type="file" id="fileInput" />
-    <button onclick="sendFile()">Send File</button>
+
+    <div class="chat-box">
+      <textarea id="chat" readonly placeholder="Chat appears here..."></textarea>
+    </div>
+
+    <div class="message-row">
+      <input type="text" id="message" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div class="file-row">
+      <input type="file" id="fileInput" />
+      <button onclick="sendFile()">Send File</button>
+    </div>
   </main>
 
   <script src="app.js"></script>
 </body>
+</html>

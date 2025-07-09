@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageInput = document.getElementById('messageInput');
   const fileInput = document.getElementById('fileInput');
   const backButton = document.getElementById('backButton');
-  const selfInfo = document.getElementById('selfInfo');
 
   let localId = crypto.randomUUID();
   let localName = generateRandomName();
@@ -18,41 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const socket = new WebSocket('wss://snapline-server.onrender.com');
 
-  // Show self info
-  function renderSelfInfo() {
-    selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
-    selfInfo.style.cursor = "pointer";
-    selfInfo.ondblclick = () => {
-      const input = document.createElement("input");
-      input.value = localName;
-      input.style.borderRadius = "12px";
-      input.onblur = finishRename;
-      input.onkeydown = (e) => {
-        if (e.key === "Enter") finishRename();
-      };
-      selfInfo.replaceChildren(input);
-      input.focus();
-
-      function finishRename() {
-        localName = input.value.trim() || localName;
-        renderSelfInfo();
-        broadcastPresence();
-      }
-    };
-  }
-
-  renderSelfInfo();
-
   socket.addEventListener('open', () => {
     console.log("✅ WebSocket connected");
     broadcastPresence();
-
-    // Immediately show UI
-    if (loading) loading.style.display = 'none';
-    if (home) {
-      home.hidden = false;
-      home.style.display = 'block';
-    }
+    loading.style.display = 'none';
+    home.hidden = false;
   });
 
   socket.addEventListener('message', async (event) => {
@@ -61,24 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const text = event.data instanceof Blob ? await event.data.text() : event.data;
       data = JSON.parse(text);
     } catch (err) {
-      console.error("Failed to parse WebSocket message:", err);
+      console.error("Invalid message:", err);
       return;
     }
 
-    if (data.type === 'peerlist') {
-      updatePeerList(data.peers);
-    }
-
-    if (data.type === 'message' && data.from && data.to === localId) {
+    if (data.type === 'peerlist') updatePeerList(data.peers);
+    if (data.type === 'message' && data.to === localId) {
       const peer = peers[data.from];
       if (!peer) return;
 
       if (!peer.messages) peer.messages = [];
-      peer.messages.push({ from: data.name, text: data.content });
+      peer.messages.push({ from: peer.name, text: data.content });
 
-      if (currentChat === data.from) {
-        renderChat(data.from);
-      }
+      if (currentChat === data.from) renderChat(data.from);
     }
   });
 
@@ -105,19 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderPeerList() {
     peerList.innerHTML = '';
-
-    // Show self first
-    const selfLi = document.createElement('li');
-    selfLi.innerHTML = `
-      <div>
-        <strong>${localName}</strong><br />
-        <small>${localDevice} (You)</small>
-      </div>
-      <span>${getDeviceIcon(localDevice)}</span>
-    `;
-    selfLi.style.background = '#e0f7ff';
-    peerList.appendChild(selfLi);
-
     for (const [id, peer] of Object.entries(peers)) {
       const li = document.createElement('li');
       li.innerHTML = `
@@ -127,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <span>${getDeviceIcon(peer.device)}</span>
       `;
+      li.className = 'peer-card';
       li.onclick = () => {
         currentChat = id;
         openChat(id);
@@ -147,9 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const peer = peers[peerId];
     chatBox.innerHTML = '';
     for (const msg of peer.messages) {
-      const line = document.createElement('div');
-      line.innerText = `${msg.from}: ${msg.text}`;
-      chatBox.appendChild(line);
+      const div = document.createElement('div');
+      const isSelf = msg.from === "You";
+      div.className = isSelf ? 'from-you' : 'from-them';
+      if (msg.text.length > 60 || msg.text.includes('\n')) {
+        div.classList.add('long');
+      }
+      div.innerText = msg.text;
+      chatBox.appendChild(div);
     }
     chatBox.scrollTop = chatBox.scrollHeight;
   }
@@ -174,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.sendFile = function () {
-    alert("File sending coming soon.");
+    alert("📎 File transfer coming soon!");
   };
 
   backButton.onclick = () => {
@@ -213,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function generateRandomName() {
     const adjectives = ["Fuzzy", "Bold", "Silent", "Brave", "Clever", "Happy", "Tiny", "Witty", "Curious", "Mighty"];
     const nouns = ["Tiger", "Skater", "Falcon", "Penguin", "Robot", "Artist", "Wizard", "Explorer", "Koala", "Pilot"];
-    const a = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const b = nouns[Math.floor(Math.random() * nouns.length)];
-    return `${a} ${b}`;
+    return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
   }
 });

@@ -1,53 +1,107 @@
 body {
-  font-family: sans-serif;
   margin: 0;
-  padding: 2rem;
-  background: #f0f4f8;
-  text-align: center;
-}
-
-h1 {
-  margin-bottom: 1rem;
-}
-
-textarea {
-  width: 90%;
-  height: 150px;
-  resize: none;
-  margin-bottom: 1rem;
-}
-
-input[type="text"] {
-  width: 70%;
-  padding: 0.5rem;
-}
-
-button {
-  padding: 0.5rem 1rem;
-  margin-left: 0.5rem;
+  font-family: "Google Sans", sans-serif;
+  background: #f5faff;
+  color: #1a1a1a;
 }
 
 #loading {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: white;
-  z-index: 999;
+  height: 100vh;
+  text-align: center;
 }
 
 .spinner {
-  border: 6px solid #ccc;
-  border-top: 6px solid #333;
+  width: 40px;
+  height: 40px;
+  border: 5px solid #cce8ff;
+  border-top: 5px solid #007bff;
   border-radius: 50%;
-  width: 48px;
-  height: 48px;
   animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+h1, h2 {
+  text-align: center;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  background: #e0f0ff;
+  color: #1a1a1a;
+  padding: 0.5em 1.2em;
+  margin: 0.3em;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #cce8ff;
+}
+
+ul#peerList {
+  list-style: none;
+  padding: 0;
+  max-width: 500px;
+  margin: auto;
+}
+
+ul#peerList li {
+  background: white;
+  padding: 1em;
+  margin: 0.5em;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+#chatView header {
+  display: flex;
+  align-items: center;
+  padding: 1em;
+  background: #ffffff;
+  border-bottom: 1px solid #ddd;
+  gap: 1em;
+}
+
+#chatBox {
+  padding: 1em;
+  height: 60vh;
+  overflow-y: auto;
+  background: white;
+  margin: 1em;
+  border-radius: 16px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+}
+
+.messageControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5em;
+  margin: 1em;
+  flex-wrap: wrap;
+}
+
+input[type="text"], input[type="file"] {
+  border-radius: 999px;
+  padding: 0.5em 1em;
+  border: 1px solid #ccc;
+  max-width: 300px;
+}
+
+#chatHeader {
+  font-weight: bold;
+  font-size: 1.1em;
 }

@@ -1,0 +1,53 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 2rem;
+  background: #f0f4f8;
+  text-align: center;
+}
+
+h1 {
+  margin-bottom: 1rem;
+}
+
+textarea {
+  width: 90%;
+  height: 150px;
+  resize: none;
+  margin-bottom: 1rem;
+}
+
+input[type="text"] {
+  width: 70%;
+  padding: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  margin-left: 0.5rem;
+}
+
+#loading {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  z-index: 999;
+}
+
+.spinner {
+  border: 6px solid #ccc;
+  border-top: 6px solid #333;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

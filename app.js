@@ -7,8 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const main = document.querySelector('main');
   const chat = document.getElementById('chat');
   const messageInput = document.getElementById('message');
+  const fileInput = document.getElementById('fileInput');
 
-  if (!loading || !main || !chat || !messageInput) {
+  if (!loading || !main || !chat || !messageInput || !fileInput) {
     console.error("❌ Required UI element missing");
     return;
   }
@@ -21,13 +22,21 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("✅ WebSocket connected");
     log("Connected to signaling server");
 
-    // 👇 Show UI, hide loading screen
-    loading.hidden = true;
-    main.hidden = false;
+    // ✅ Show the UI, hide loading
+    try {
+      loading.hidden = true;
+      loading.style.display = 'none';
+
+      main.hidden = false;
+      main.style.display = 'block';
+      console.log("🟢 UI revealed");
+    } catch (e) {
+      console.error("❌ UI toggle failed", e);
+    }
 
     setupPeer();
 
-    // Wait briefly — if no offer, create one
+    // Wait briefly — if no offer, send one
     setTimeout(() => {
       if (!hasReceivedOffer) {
         createOffer();
@@ -112,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function sendFile() {
-    const file = document.getElementById('fileInput').files[0];
+    const file = fileInput.files[0];
     if (!file || dataChannel?.readyState !== 'open') return;
 
     const reader = new FileReader();
@@ -153,8 +162,8 @@ document.addEventListener('DOMContentLoaded', () => {
         link.download = msg.filename;
         link.textContent = "⬇ Download " + msg.filename;
         link.style.display = 'block';
-        chat.value += "\n";
         chat.insertAdjacentElement('beforeend', link);
+        chat.scrollTop = chat.scrollHeight;
       }
     };
   }
@@ -164,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chat.scrollTop = chat.scrollHeight;
   }
 
-  // 👇 Make these globally accessible from HTML buttons
+  // 👇 Expose to HTML buttons
   window.sendMessage = sendMessage;
   window.sendFile = sendFile;
 });

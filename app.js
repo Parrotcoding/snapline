@@ -1,6 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  console.log("📦 DOM ready");
-
   // UI references
   const loading = document.getElementById('loading');
   const home = document.getElementById('home');
@@ -13,49 +11,41 @@ document.addEventListener('DOMContentLoaded', () => {
   const backButton = document.getElementById('backButton');
   const selfInfo = document.getElementById('selfInfo');
 
-  let localName = prompt("Enter your name (nickname):") || "Anonymous";
   let localId = crypto.randomUUID();
+  let localName = generateRandomName();
+  let localDevice = `${detectPlatform()} ${detectBrowser()}`;
   let peers = {};
   let currentChat = null;
 
   const socket = new WebSocket('wss://snapline-server.onrender.com');
 
-  function detectPlatform() {
-    const ua = navigator.userAgent;
-    if (/Android/i.test(ua)) return "Android";
-    if (/iPhone|iPad/i.test(ua)) return "iOS";
-    if (/Win/i.test(ua)) return "Windows";
-    if (/Mac/i.test(ua)) return "Mac";
-    if (/Linux/i.test(ua)) return "Linux";
-    return "Device";
-  }
+  // Show self info + allow renaming
+  selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
+  selfInfo.style.cursor = "pointer";
 
-  function detectBrowser() {
-    const ua = navigator.userAgent;
-    if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) return "Safari";
-    if (/Firefox/i.test(ua)) return "Firefox";
-    if (/Edg/i.test(ua)) return "Edge";
-    if (/Chrome/i.test(ua)) return "Chrome";
-    return "Browser";
-  }
+  selfInfo.ondblclick = () => {
+    const input = document.createElement("input");
+    input.value = localName;
+    input.style.borderRadius = "12px";
+    input.onblur = finishRename;
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") finishRename();
+    };
+    selfInfo.replaceChildren(input);
+    input.focus();
 
-  const deviceLabel = `${detectPlatform()} ${detectBrowser()}`;
-  const avatar = /iOS|Android/.test(detectPlatform()) ? '📱' : '💻';
+    function finishRename() {
+      localName = input.value.trim() || localName;
+      selfInfo.innerHTML = `<strong id="selfName">${localName}</strong> • ${localDevice} <span style="opacity:0.5;">(You)</span>`;
+      broadcastPresence();
+    }
+  };
 
-  // Show local user info
-  selfInfo.innerText = `You: ${localName} • ${deviceLabel}`;
-
-  // WebSocket communication
   socket.addEventListener('open', () => {
     console.log("✅ WebSocket connected");
+    broadcastPresence();
 
-    socket.send(JSON.stringify({
-      type: 'join',
-      id: localId,
-      name: localName,
-      device: deviceLabel
-    }));
-
+    // Immediately show UI
     loading.hidden = true;
     home.hidden = false;
   });
@@ -87,6 +77,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function broadcastPresence() {
+    socket.send(JSON.stringify({
+      type: 'join',
+      id: localId,
+      name: localName,
+      device: localDevice
+    }));
+  }
+
   function updatePeerList(list) {
     peers = {};
 
@@ -103,6 +102,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderPeerList() {
     peerList.innerHTML = '';
+
+    // Show self at top
+    const selfLi = document.createElement('li');
+    selfLi.innerHTML = `
+      <div>
+        <strong>${localName}</strong><br />
+        <small>${localDevice} (You)</small>
+      </div>
+      <span>${getDeviceIcon(localDevice)}</span>
+    `;
+    selfLi.style.background = '#e0f7ff';
+    peerList.appendChild(selfLi);
+
     for (const [id, peer] of Object.entries(peers)) {
       const li = document.createElement('li');
       li.innerHTML = `
@@ -110,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <strong>${peer.name}</strong><br />
           <small>${peer.device}</small>
         </div>
-        <span>${avatar}</span>
+        <span>${getDeviceIcon(peer.device)}</span>
       `;
       li.onclick = () => {
         currentChat = id;
@@ -168,4 +180,39 @@ document.addEventListener('DOMContentLoaded', () => {
     home.hidden = false;
     currentChat = null;
   };
+
+  function detectPlatform() {
+    const ua = navigator.userAgent;
+    if (/Android/i.test(ua)) return "Android";
+    if (/iPhone|iPad/i.test(ua)) return "iOS";
+    if (/Win/i.test(ua)) return "Windows";
+    if (/Mac/i.test(ua)) return "Mac";
+    if (/Linux/i.test(ua)) return "Linux";
+    return "Device";
+  }
+
+  function detectBrowser() {
+    const ua = navigator.userAgent;
+    if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) return "Safari";
+    if (/Firefox/i.test(ua)) return "Firefox";
+    if (/Edg/i.test(ua)) return "Edge";
+    if (/Chrome/i.test(ua)) return "Chrome";
+    return "Browser";
+  }
+
+  function getDeviceIcon(device) {
+    if (device.includes("Safari")) return "🧭";
+    if (device.includes("Firefox")) return "🦊";
+    if (device.includes("Edge")) return "🧊";
+    if (device.includes("Android") || device.includes("iOS")) return "📱";
+    return "💻";
+  }
+
+  function generateRandomName() {
+    const adjectives = ["Fuzzy", "Bold", "Silent", "Brave", "Clever", "Happy", "Tiny", "Witty", "Curious", "Mighty"];
+    const nouns = ["Tiger", "Skater", "Falcon", "Penguin", "Robot", "Artist", "Wizard", "Explorer", "Koala", "Pilot"];
+    const a = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const b = nouns[Math.floor(Math.random() * nouns.length)];
+    return `${a} ${b}`;
+  }
 });
